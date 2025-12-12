@@ -9,7 +9,7 @@ Run the command below to generate a `lex.yy.c` file.
 
 ## Roadmap
 - [x] tokenize the lex file
-- [ ] generate a basic `lex.yy.c` file without specific rules
+- [x] generate a basic `lex.yy.c` file without specific rules
 - [ ] apply rules
     - [ ] parse rule with regex crate
     - [ ] insert code
