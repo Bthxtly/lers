@@ -11,8 +11,8 @@ pub enum DeclarationToken<'a> {
     #[regex(r"[^\s]+", |lex| lex.slice())]
     Option(&'a str),
 
-    #[regex(r"(?s)%\{.*?%}", |lex| &lex.slice()[2..lex.slice().len()-2])]
-    // skip the %{ and %} and trim whitespace
+    #[regex(r"(?s)%\{\n.*?\n%}", |lex| &lex.slice()[3..lex.slice().len()-3])]
+    // skip the %{\n and \n%} and trim whitespace
     CCode(&'a str),
 }
 
@@ -35,18 +35,22 @@ mod test {
     #[test]
     fn tokenize() {
         let decl = r#"
-            %option noyywrap
-            /*** Definition section ***/
+%option noyywrap
+/*** Definition section ***/
 
-            %{
-                /* C code to be copied verbatim */
-                #include <stdio.h>
-            %}
-            "#;
+%{
+    /* C code to be copied verbatim */
+    #include <stdio.h>
+%}"#;
         let mut lex = DeclarationToken::lexer(decl);
         token_eq!(lex, DeclarationToken::OptionStart);
         token_eq!(lex, DeclarationToken::Option("noyywrap"));
-        token_match!(lex, DeclarationToken::CCode(_));
+        token_eq!(
+            lex,
+            DeclarationToken::CCode(
+                "    /* C code to be copied verbatim */\n    #include <stdio.h>"
+            )
+        );
         assert_eq!(lex.next(), None);
     }
 }

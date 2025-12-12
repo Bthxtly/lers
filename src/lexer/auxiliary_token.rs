@@ -14,15 +14,14 @@ mod test {
     #[test]
     fn tokenize() {
         let aux = r#"
-            /*** C Code section ***/
+/*** C Code section ***/
 
-            int main(void)
-            {
-                /* Call the lexer, then quit. */
-                yylex();
-                return 0;
-            }
-            "#;
+int main(void)
+{
+    /* Call the lexer, then quit. */
+    yylex();
+    return 0;
+}"#;
         let mut lex = AuxiliaryToken::lexer(aux);
         assert!(matches!(lex.next(), Some(Ok(AuxiliaryToken::CCode(_)))));
         assert_eq!(lex.next(), None);

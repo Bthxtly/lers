@@ -29,13 +29,12 @@ mod test {
     #[test]
     fn tokenize() {
         let rules = r#"
-            [0-9]+  {
-                        /* yytext is a string containing the matched text. */
-                        printf("Saw an integer: %s\n", yytext);
-                    }
+[0-9]+  {
+            /* yytext is a string containing the matched text. */
+            printf("Saw an integer: %s\n", yytext);
+        }
 
-            .|\n    {   /* Ignore all other characters. */   }
-            "#;
+.|\n    {   /* Ignore all other characters. */   }"#;
         let mut lex = RuleToken::lexer(rules);
 
         token_eq!(lex, RuleToken::Pattern("[0-9]+"));

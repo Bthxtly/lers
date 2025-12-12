@@ -14,6 +14,8 @@ pub enum Token<'a> {
     Decl(DeclarationToken<'a>),
     Rule(RuleToken<'a>),
     Auxi(AuxiliaryToken<'a>),
+    RuleStart,
+    RuleEnd,
 }
 
 pub struct Lexer<'a> {
@@ -51,13 +53,16 @@ impl<'a> Iterator for Lexer<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if self.section_idx >= self.section_lexers.len() {
-                return None;
-            }
             match self.section_lexers[self.section_idx].next() {
                 Some(tok) => return Some(tok),
                 None => {
                     self.section_idx += 1;
+                    match self.section_idx {
+                        1 => return Some(Ok(Token::RuleStart)),
+                        2 => return Some(Ok(Token::RuleEnd)),
+                        3 => return None,
+                        _ => unreachable!(),
+                    }
                 }
             }
         }
@@ -83,34 +88,35 @@ mod test {
     fn tokenize() {
         use Token::*;
         let source = r#"
-            %option noyywrap
-            /* comment */
-            %{
-                c code block
-            %}
+%option noyywrap
+/* comment */
+%{
+    c code block
+%}
 
-            %%
+%%
 
-            pattern1    { action1(); }
-            pattern2    { action2(); }
-            pattern3    { action3(); }
+pattern1    { action1(); }
+pattern2    { action2(); }
+pattern3    { action3(); }
 
-            %%
+%%
 
-            /* auxiliary code */
-            void helper() {}
-            "#;
+/* auxiliary code */
+void helper() {}"#;
         let mut lex = Lexer::new(source);
 
         token_eq!(lex, Decl(DeclarationToken::OptionStart));
         token_eq!(lex, Decl(DeclarationToken::Option("noyywrap")));
         token_match!(lex, Decl(DeclarationToken::CCode(_)));
+        assert_eq!(lex.next(), Some(Ok(RuleStart)));
         token_eq!(lex, Rule(RuleToken::Pattern("pattern1")));
         token_eq!(lex, Rule(RuleToken::Action("{ action1(); }")));
         token_eq!(lex, Rule(RuleToken::Pattern("pattern2")));
         token_eq!(lex, Rule(RuleToken::Action("{ action2(); }")));
         token_eq!(lex, Rule(RuleToken::Pattern("pattern3")));
         token_eq!(lex, Rule(RuleToken::Action("{ action3(); }")));
+        assert_eq!(lex.next(), Some(Ok(RuleEnd)));
         token_match!(lex, Auxi(AuxiliaryToken::CCode(_)));
         assert_eq!(lex.next(), None);
     }
