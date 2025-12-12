@@ -3,25 +3,23 @@ mod auxiliary_token;
 mod declaration_token;
 mod rule_token;
 
-use logos::Logos;
+pub use auxiliary_token::AuxiliaryToken;
+pub use declaration_token::DeclarationToken;
+pub use rule_token::RuleToken;
 
-use auxiliary_token::AuxiliaryToken;
-use declaration_token::DeclarationToken;
-use rule_token::RuleToken;
+use logos::Logos;
 
 #[derive(Debug, PartialEq)]
 pub enum Token<'a> {
     Decl(DeclarationToken<'a>),
     Rule(RuleToken<'a>),
     Auxi(AuxiliaryToken<'a>),
-    Delimiter, // Represents "%%"
 }
 
 pub struct Lexer<'a> {
     source: &'a str,
     section_idx: usize,
     section_lexers: [Box<dyn Iterator<Item = Result<Token<'a>, ()>> + 'a>; 3],
-    delimiter_next: bool,
 }
 
 impl<'a> Lexer<'a> {
@@ -44,7 +42,6 @@ impl<'a> Lexer<'a> {
                 Box::new(rule_iter),
                 Box::new(auxi_iter),
             ],
-            delimiter_next: false,
         }
     }
 }
@@ -57,17 +54,10 @@ impl<'a> Iterator for Lexer<'a> {
             if self.section_idx >= self.section_lexers.len() {
                 return None;
             }
-            if self.delimiter_next {
-                self.delimiter_next = false;
-                return Some(Ok(Token::Delimiter));
-            }
             match self.section_lexers[self.section_idx].next() {
                 Some(tok) => return Some(tok),
                 None => {
                     self.section_idx += 1;
-                    if self.section_idx < self.section_lexers.len() {
-                        self.delimiter_next = true;
-                    }
                 }
             }
         }
@@ -115,14 +105,12 @@ mod test {
         token_eq!(lex, Decl(DeclarationToken::OptionStart));
         token_eq!(lex, Decl(DeclarationToken::Option("noyywrap")));
         token_match!(lex, Decl(DeclarationToken::CCode(_)));
-        token_eq!(lex, Delimiter);
         token_eq!(lex, Rule(RuleToken::Pattern("pattern1")));
         token_eq!(lex, Rule(RuleToken::Action("{ action1(); }")));
         token_eq!(lex, Rule(RuleToken::Pattern("pattern2")));
         token_eq!(lex, Rule(RuleToken::Action("{ action2(); }")));
         token_eq!(lex, Rule(RuleToken::Pattern("pattern3")));
         token_eq!(lex, Rule(RuleToken::Action("{ action3(); }")));
-        token_eq!(lex, Delimiter);
         token_match!(lex, Auxi(AuxiliaryToken::CCode(_)));
         assert_eq!(lex.next(), None);
     }
