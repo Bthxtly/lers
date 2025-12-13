@@ -11,7 +11,7 @@ Run the command below to generate a `lex.yy.c` file.
 - [x] tokenize the lex file
 - [x] generate a basic `lex.yy.c` file without specific rules
 - [ ] apply rules
-    - [ ] apply for simple rules (literal)
+    - [x] apply for simple rules (literal)
     - [ ] build a regular expression engine with Deterministic Finite Automate(DFA)
     - [ ] translate from regular expression to C code
 - [ ] support `yy*` variables
