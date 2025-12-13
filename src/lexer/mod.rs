@@ -52,17 +52,15 @@ impl<'a> Iterator for Lexer<'a> {
     type Item = Result<Token<'a>, ()>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            match self.section_lexers[self.section_idx].next() {
-                Some(tok) => return Some(tok),
-                None => {
-                    self.section_idx += 1;
-                    match self.section_idx {
-                        1 => return Some(Ok(Token::RuleStart)),
-                        2 => return Some(Ok(Token::RuleEnd)),
-                        3 => return None,
-                        _ => unreachable!(),
-                    }
+        match self.section_lexers[self.section_idx].next() {
+            Some(tok) => Some(tok),
+            None => {
+                self.section_idx += 1;
+                match self.section_idx {
+                    1 => Some(Ok(Token::RuleStart)),
+                    2 => Some(Ok(Token::RuleEnd)),
+                    3 => None,
+                    _ => unreachable!(),
                 }
             }
         }
