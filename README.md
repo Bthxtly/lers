@@ -14,5 +14,9 @@ Run the command below to generate a `lers.yy.c` file.
     - [x] apply for simple rules (literal)
     - [ ] build a regular expression engine with Deterministic Finite Automate(DFA)
     - [ ] translate from regular expression to C code
+- [ ] support multiple IO (file, stdin, stdout)
 - [ ] support `yy*` variables
-more...
+    - [ ] yyin, yyout
+    - [ ] yytext, yyleng
+
+And more...
