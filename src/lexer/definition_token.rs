@@ -4,7 +4,7 @@ use logos::Logos;
 #[derive(Logos, Debug, PartialEq)]
 #[logos(skip r"[ \t\n\f]+")] // Ignore this regex pattern between tokens
 #[logos(skip r"/\*.*?\*/")] // Ignore comments
-pub enum DeclarationToken<'a> {
+pub enum DefinitionToken<'a> {
     #[token("%option")]
     OptionStart,
 
@@ -34,7 +34,7 @@ mod test {
 
     #[test]
     fn tokenize() {
-        let decl = r#"
+        let definition = r#"
 %option noyywrap
 /*** Definition section ***/
 
@@ -42,12 +42,12 @@ mod test {
     /* C code to be copied verbatim */
     #include <stdio.h>
 %}"#;
-        let mut lex = DeclarationToken::lexer(decl);
-        token_eq!(lex, DeclarationToken::OptionStart);
-        token_eq!(lex, DeclarationToken::Option("noyywrap"));
+        let mut lex = DefinitionToken::lexer(definition);
+        token_eq!(lex, DefinitionToken::OptionStart);
+        token_eq!(lex, DefinitionToken::Option("noyywrap"));
         token_eq!(
             lex,
-            DeclarationToken::CCode(
+            DefinitionToken::CCode(
                 "    /* C code to be copied verbatim */\n    #include <stdio.h>"
             )
         );

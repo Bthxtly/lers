@@ -2,7 +2,7 @@ use logos::Logos;
 
 // simply put all codes into the target file
 #[derive(Logos, Debug, PartialEq)]
-pub enum AuxiliaryToken<'a> {
+pub enum UsercodeToken<'a> {
     #[regex(r"(?s).+", |lex|lex.slice(),  allow_greedy = true)]
     CCode(&'a str),
 }
@@ -13,7 +13,7 @@ mod test {
 
     #[test]
     fn tokenize() {
-        let aux = r#"
+        let ucode = r#"
 /*** C Code section ***/
 
 int main(void)
@@ -22,8 +22,8 @@ int main(void)
     yylex();
     return 0;
 }"#;
-        let mut lex = AuxiliaryToken::lexer(aux);
-        assert!(matches!(lex.next(), Some(Ok(AuxiliaryToken::CCode(_)))));
+        let mut lex = UsercodeToken::lexer(ucode);
+        assert!(matches!(lex.next(), Some(Ok(UsercodeToken::CCode(_)))));
         assert_eq!(lex.next(), None);
     }
 }

@@ -1,6 +1,6 @@
 mod rule_parser;
 
-use crate::lexer::{AuxiliaryToken, DeclarationToken, Lexer, RuleToken, Token};
+use crate::lexer::{DefinitionToken, Lexer, RuleToken, Token, UsercodeToken};
 use rule_parser::RuleParser;
 
 pub struct Parser<'a> {
@@ -18,14 +18,14 @@ impl<'a> Parser<'a> {
 
     pub fn gen_code(&mut self) -> String {
         let mut target_code = String::new();
-        target_code.push_str("/* DECLARATION START */\n");
+        target_code.push_str("/* DEFINITION START */\n");
 
         while let Some(Ok(token)) = &self.lexer.next() {
             match token {
-                Token::Decl(decl) => match decl {
-                    DeclarationToken::OptionStart => {} // do nothing for now
-                    DeclarationToken::Option(_) => {}   // do nothing for now
-                    DeclarationToken::CCode(code) => {
+                Token::Definition(definition) => match definition {
+                    DefinitionToken::OptionStart => {} // do nothing for now
+                    DefinitionToken::Option(_) => {}   // do nothing for now
+                    DefinitionToken::CCode(code) => {
                         target_code.push_str(code);
                     }
                 },
@@ -33,10 +33,10 @@ impl<'a> Parser<'a> {
                     target_code.push('\n');
                     target_code.push_str("\n/* RULE START */\n");
                     target_code.push_str(&self.gen_rule_code());
-                    target_code.push_str("\n/* AUXILIARY START */\n");
+                    target_code.push_str("\n/* UESR CODE START */\n");
                 }
-                Token::Auxi(aux) => match aux {
-                    AuxiliaryToken::CCode(code) => {
+                Token::Ucode(ucode) => match ucode {
+                    UsercodeToken::CCode(code) => {
                         target_code.push_str(code);
                     }
                 },
@@ -80,10 +80,10 @@ pattern3    { action3(); }
 
 %%
 
-/* auxiliary code */
+/* user code */
 void helper() {}"#;
         let mut parser = Parser::new(source);
-        let target_code = r#"/* DECLARATION START */
+        let target_code = r#"/* DEFINITION START */
     c code block
 
 /* RULE START */
@@ -161,10 +161,10 @@ int yylex() {
   return 0;
 }
 
-/* AUXILIARY START */
+/* UESR CODE START */
 
 
-/* auxiliary code */
+/* user code */
 void helper() {}"#;
         assert_eq!(parser.gen_code(), target_code);
     }

@@ -1,19 +1,19 @@
 #![allow(unused)]
-mod auxiliary_token;
-mod declaration_token;
+mod definition_token;
 mod rule_token;
+mod usercode_token;
 
-pub use auxiliary_token::AuxiliaryToken;
-pub use declaration_token::DeclarationToken;
+pub use definition_token::DefinitionToken;
 pub use rule_token::RuleToken;
+pub use usercode_token::UsercodeToken;
 
 use logos::Logos;
 
 #[derive(Debug, PartialEq)]
 pub enum Token<'a> {
-    Decl(DeclarationToken<'a>),
+    Definition(DefinitionToken<'a>),
     Rule(RuleToken<'a>),
-    Auxi(AuxiliaryToken<'a>),
+    Ucode(UsercodeToken<'a>),
     RuleStart,
     RuleEnd,
 }
@@ -32,17 +32,18 @@ impl<'a> Lexer<'a> {
             "Input must have exactly two '%%' delimiters"
         );
 
-        let decl_iter = DeclarationToken::lexer(sections[0]).map(|tok| tok.map(Token::Decl));
+        let definition_iter =
+            DefinitionToken::lexer(sections[0]).map(|tok| tok.map(Token::Definition));
         let rule_iter = RuleToken::lexer(sections[1]).map(|tok| tok.map(Token::Rule));
-        let auxi_iter = AuxiliaryToken::lexer(sections[2]).map(|tok| tok.map(Token::Auxi));
+        let ucode_iter = UsercodeToken::lexer(sections[2]).map(|tok| tok.map(Token::Ucode));
 
         Lexer {
             source,
             section_idx: 0,
             section_lexers: [
-                Box::new(decl_iter),
+                Box::new(definition_iter),
                 Box::new(rule_iter),
-                Box::new(auxi_iter),
+                Box::new(ucode_iter),
             ],
         }
     }
@@ -100,13 +101,13 @@ pattern3    { action3(); }
 
 %%
 
-/* auxiliary code */
+/* user code */
 void helper() {}"#;
         let mut lex = Lexer::new(source);
 
-        token_eq!(lex, Decl(DeclarationToken::OptionStart));
-        token_eq!(lex, Decl(DeclarationToken::Option("noyywrap")));
-        token_match!(lex, Decl(DeclarationToken::CCode(_)));
+        token_eq!(lex, Definition(DefinitionToken::OptionStart));
+        token_eq!(lex, Definition(DefinitionToken::Option("noyywrap")));
+        token_match!(lex, Definition(DefinitionToken::CCode(_)));
         assert_eq!(lex.next(), Some(Ok(RuleStart)));
         token_eq!(lex, Rule(RuleToken::Pattern("pattern1")));
         token_eq!(lex, Rule(RuleToken::Action("{ action1(); }")));
@@ -115,7 +116,7 @@ void helper() {}"#;
         token_eq!(lex, Rule(RuleToken::Pattern("pattern3")));
         token_eq!(lex, Rule(RuleToken::Action("{ action3(); }")));
         assert_eq!(lex.next(), Some(Ok(RuleEnd)));
-        token_match!(lex, Auxi(AuxiliaryToken::CCode(_)));
+        token_match!(lex, Ucode(UsercodeToken::CCode(_)));
         assert_eq!(lex.next(), None);
     }
 }
