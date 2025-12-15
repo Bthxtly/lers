@@ -65,7 +65,6 @@ impl<'a> RuleParser<'a> {
     fn gen_yylex_function(&self) -> String {
         let mut func_code = String::new();
         func_code.push_str("int yylex() {\n");
-        func_code.push_str("  read_file(\"test.txt\");\n");
         func_code.push_str("  match();\n");
         func_code.push_str("  return 0;\n");
         func_code.push_str("}\n");

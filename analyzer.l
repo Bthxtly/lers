@@ -22,7 +22,8 @@
 
 int main(void)
 {
-    /* Call the lexer, then quit. */
-    yylex();
-    return 0;
+  /* Call the lexer, then quit. */
+  read_file("test.txt");
+  yylex();
+  return 0;
 }

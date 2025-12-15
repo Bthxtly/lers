@@ -157,7 +157,6 @@ void match() {
 }
 
 int yylex() {
-  read_file("test.txt");
   match();
   return 0;
 }
