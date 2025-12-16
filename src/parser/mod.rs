@@ -1,61 +1,99 @@
-mod rule_parser;
-
+use crate::ast::{
+    CodeNode, DefinitionNode, OptionNode, Root, RuleNode, RulePairNode, UserCodeNode,
+};
 use crate::lexer::{DefinitionToken, Lexer, RuleToken, Token, UsercodeToken};
-use rule_parser::RuleParser;
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
-    rule_parser: RuleParser<'a>,
+    current_token: Option<Token<'a>>,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(source: &'a str) -> Self {
+        let lexer = Lexer::new(source);
         Parser {
-            lexer: Lexer::new(source),
-            rule_parser: RuleParser::default(),
+            lexer,
+            current_token: None,
         }
     }
 
-    pub fn gen_code(&mut self) -> String {
-        let mut target_code = String::new();
-        target_code.push_str("/* DEFINITION START */\n");
+    fn advance(&mut self) {
+        self.current_token = self.lexer.next().and_then(|res| res.ok());
+    }
 
-        while let Some(Ok(token)) = &self.lexer.next() {
+    pub fn parse(&mut self) -> Root<'a> {
+        let mut definition_node: Option<DefinitionNode<'_>> = None;
+        let mut rule_node: Option<RuleNode<'_>> = None;
+        let mut usercode_node: Option<UserCodeNode<'_>> = None;
+        self.advance();
+
+        while let Some(token) = &self.current_token {
             match token {
                 Token::Definition(definition) => match definition {
-                    DefinitionToken::OptionStart => {} // do nothing for now
-                    DefinitionToken::Option(_) => {}   // do nothing for now
+                    DefinitionToken::OptionStart => {
+                        if let Some(definition_node) = &mut definition_node {
+                            definition_node.options = Some(self.parse_options());
+                        } else {
+                            definition_node = Some(DefinitionNode::default());
+                            definition_node.as_mut().unwrap().options = Some(self.parse_options())
+                        }
+                    }
                     DefinitionToken::CCode(code) => {
-                        target_code.push_str(code);
+                        if let Some(definition_node) = &mut definition_node {
+                            definition_node.code = Some(CodeNode::from(*code));
+                        } else {
+                            definition_node = Some(DefinitionNode::default());
+                            definition_node.as_mut().unwrap().code = Some(CodeNode::from(*code))
+                        }
+                        self.advance();
+                    }
+                    DefinitionToken::Option(_) => unreachable!("consumed by parse_option"),
+                },
+                Token::Rule(_) => rule_node = Some(self.parse_rules()),
+                Token::Ucode(ucode) => match ucode {
+                    UsercodeToken::CCode(code) => {
+                        usercode_node = Some(UserCodeNode::from(*code));
+                        self.advance();
                     }
                 },
                 Token::RuleStart => {
-                    target_code.push('\n');
-                    target_code.push_str("\n/* RULE START */\n");
-                    target_code.push_str(&self.gen_rule_code());
-                    target_code.push_str("\n/* UESR CODE START */\n");
+                    self.advance();
                 }
-                Token::Ucode(ucode) => match ucode {
-                    UsercodeToken::CCode(code) => {
-                        target_code.push_str(code);
-                    }
-                },
-                Token::Rule(_) => unreachable!(),
-                Token::RuleEnd => unreachable!(),
+                Token::RuleEnd => {
+                    self.advance();
+                }
             }
         }
 
-        target_code
+        Root {
+            definition_node,
+            rule_node,
+            usercode_node,
+        }
     }
 
-    fn gen_rule_code(&mut self) -> String {
-        while let Some(Ok(Token::Rule(rule))) = &self.lexer.next() {
-            match rule {
-                RuleToken::Pattern(pattern) => self.rule_parser.add_pattern(pattern),
-                RuleToken::Action(action) => self.rule_parser.add_action(action),
+    fn parse_options(&mut self) -> Vec<OptionNode<'a>> {
+        let mut options: Vec<OptionNode> = Vec::new();
+        self.advance(); // skip the %option token
+        while let Some(Token::Definition(DefinitionToken::Option(option))) = self.current_token {
+            options.push(OptionNode::from(option));
+            self.advance();
+        }
+        options
+    }
+
+    fn parse_rules(&mut self) -> RuleNode<'a> {
+        let mut rules: Vec<RulePairNode<'a>> = Vec::new();
+        while let Some(Token::Rule(RuleToken::Pattern(pattern))) = self.current_token {
+            self.advance();
+            if let Some(Token::Rule(RuleToken::Action(action))) = self.current_token {
+                rules.push(RulePairNode { pattern, action });
+                self.advance();
+            } else {
+                panic!("Expected action after pattern");
             }
         }
-        self.rule_parser.gen_code()
+        RuleNode { rules: Some(rules) }
     }
 }
 
@@ -83,89 +121,34 @@ pattern3    { action3(); }
 /* user code */
 void helper() {}"#;
         let mut parser = Parser::new(source);
-        let target_code = r#"/* DEFINITION START */
-    c code block
-
-/* RULE START */
-
-#include <stdio.h>
-#include <stdlib.h>
-
-typedef unsigned long IdxType;
-char *g_buffer;
-IdxType g_buflen;
-IdxType g_bufidx;
-
-char* yytext = "YYTEXT"; /* TODO: implement yytext properly */
-
-void read_file(const char *filename) {
-  FILE *fp = fopen(filename, "r");
-  if (fp == NULL) {
-    perror("Failed to open file");
-  }
-
-  fseek(fp, 0, SEEK_END);
-  g_buflen = ftell(fp);
-  rewind(fp);
-
-  g_buffer = malloc(g_buflen + 1);
-  if (!g_buffer) {
-    perror("Failed to allocate memory for buffer");
-  }
-
-  fread(g_buffer, 1, g_buflen, fp);
-  g_buffer[g_buflen] = '\0'; // Null-terminate the string
-  fclose(fp);
-}
-
-#define g_pattern_count 3
-char *g_patterns[] = {
-  "pattern1",
-  "pattern2",
-  "pattern3",
-};
-
-void action(int pattern_index) {
-  if (pattern_index == 0) {
-{ action1(); }
-  }
-  if (pattern_index == 1) {
-{ action2(); }
-  }
-  if (pattern_index == 2) {
-{ action3(); }
-  }
-}
-
-void match() {
-  while (g_bufidx < g_buflen) {
-    for (int i = 0; i < g_pattern_count; i++) {
-      const char *pat = g_patterns[i];
-      if (g_buffer[g_bufidx] == pat[0]) {
-        IdxType current_idx = g_bufidx;
-        while (g_buffer[current_idx] == pat[current_idx - g_bufidx] &&
-               pat[current_idx - g_bufidx] != '\0') {
-          current_idx++;
-        }
-        if (pat[current_idx - g_bufidx] == '\0') {
-          action(i);
-        }
-      }
-    }
-    ++g_bufidx;
-  }
-}
-
-int yylex() {
-  match();
-  return 0;
-}
-
-/* UESR CODE START */
-
-
-/* user code */
-void helper() {}"#;
-        assert_eq!(parser.gen_code(), target_code);
+        let target_ast = Root {
+            definition_node: Some(DefinitionNode {
+                options: Some(vec![OptionNode { value: "noyywrap" }]),
+                code: Some(CodeNode {
+                    value: "    c code block",
+                }),
+                definitions: None,
+            }),
+            rule_node: Some(RuleNode {
+                rules: Some(vec![
+                    RulePairNode {
+                        pattern: "pattern1",
+                        action: "{ action1(); }",
+                    },
+                    RulePairNode {
+                        pattern: "pattern2",
+                        action: "{ action2(); }",
+                    },
+                    RulePairNode {
+                        pattern: "pattern3",
+                        action: "{ action3(); }",
+                    },
+                ]),
+            }),
+            usercode_node: Some(UserCodeNode {
+                value: "\n\n/* user code */\nvoid helper() {}",
+            }),
+        };
+        assert_eq!(parser.parse(), target_ast);
     }
 }
