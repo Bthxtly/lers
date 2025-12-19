@@ -6,16 +6,19 @@
   #include <stdio.h>
 %}
 
+digit   [0-9]
+number  {digit}+
+
 %%
     /*** Rules section ***/
 
     /* [0-9]+ matches a string of one or more digits */
-[0-9]+  {
-            /* yytext is a string containing the matched text. */
-            printf("Saw an integer: %s\n", yytext);
-        }
+{number}  {
+              /* yytext is a string containing the matched text. */
+              printf("Saw an integer: %s\n", yytext);
+          }
 
-.|\n    {   /* Ignore all other characters. */   }
+.|\n      {   /* Ignore all other characters. */   }
 
 %%
 /*** C Code section ***/

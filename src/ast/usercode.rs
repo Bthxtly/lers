@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub struct UserCodeNode<'a> {
     pub value: &'a str,
 }

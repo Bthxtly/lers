@@ -4,6 +4,7 @@ mod lexer;
 mod parser;
 
 use codegen::CodeGen;
+use lexer::Lexer;
 use parser::Parser;
 use std::fs;
 
@@ -13,7 +14,8 @@ fn main() {
 
 fn read_and_parse_and_write() {
     let source = fs::read_to_string("analyzer.l").expect("Unable to read file");
-    let mut parser = Parser::new(&source);
+    let lexer = Lexer::new(&source);
+    let mut parser = Parser::new(lexer);
     let ast = parser.parse();
     let mut codegen = CodeGen::new(ast);
     let target_code = codegen.generate();

@@ -14,8 +14,6 @@ pub enum Token<'a> {
     Definition(DefinitionToken<'a>),
     Rule(RuleToken<'a>),
     Ucode(UsercodeToken<'a>),
-    RuleStart,
-    RuleEnd,
 }
 
 pub struct Lexer<'a> {
@@ -53,13 +51,15 @@ impl<'a> Iterator for Lexer<'a> {
     type Item = Result<Token<'a>, ()>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.section_idx > 2 {
+            return None;
+        }
         match self.section_lexers[self.section_idx].next() {
             Some(tok) => Some(tok),
             None => {
                 self.section_idx += 1;
                 match self.section_idx {
-                    1 => Some(Ok(Token::RuleStart)),
-                    2 => Some(Ok(Token::RuleEnd)),
+                    1 | 2 => self.next(),
                     3 => None,
                     _ => unreachable!(),
                 }
@@ -93,6 +93,10 @@ mod test {
     c code block
 %}
 
+name1       pattern1
+name2       pattern2
+name3       pattern3
+
 %%
 
 pattern1    { action1(); }
@@ -105,17 +109,30 @@ pattern3    { action3(); }
 void helper() {}"#;
         let mut lex = Lexer::new(source);
 
+        token_eq!(lex, Definition(DefinitionToken::Newline));
         token_eq!(lex, Definition(DefinitionToken::OptionStart));
-        token_eq!(lex, Definition(DefinitionToken::Option("noyywrap")));
+        token_eq!(lex, Definition(DefinitionToken::Identifier("noyywrap")));
+        token_eq!(lex, Definition(DefinitionToken::Newline));
+        token_eq!(lex, Definition(DefinitionToken::Newline));
         token_match!(lex, Definition(DefinitionToken::CCode(_)));
-        assert_eq!(lex.next(), Some(Ok(RuleStart)));
+        token_eq!(lex, Definition(DefinitionToken::Newline));
+        token_eq!(lex, Definition(DefinitionToken::Name("name1")));
+        token_eq!(lex, Definition(DefinitionToken::Pattern("pattern1")));
+        token_eq!(lex, Definition(DefinitionToken::Name("name2")));
+        token_eq!(lex, Definition(DefinitionToken::Pattern("pattern2")));
+        token_eq!(lex, Definition(DefinitionToken::Name("name3")));
+        token_eq!(lex, Definition(DefinitionToken::Pattern("pattern3")));
+        token_eq!(lex, Definition(DefinitionToken::Newline));
+        token_eq!(lex, Definition(DefinitionToken::Newline));
+        token_eq!(lex, Rule(RuleToken::Newline));
         token_eq!(lex, Rule(RuleToken::Pattern("pattern1")));
         token_eq!(lex, Rule(RuleToken::Action("{ action1(); }")));
         token_eq!(lex, Rule(RuleToken::Pattern("pattern2")));
         token_eq!(lex, Rule(RuleToken::Action("{ action2(); }")));
         token_eq!(lex, Rule(RuleToken::Pattern("pattern3")));
         token_eq!(lex, Rule(RuleToken::Action("{ action3(); }")));
-        assert_eq!(lex.next(), Some(Ok(RuleEnd)));
+        token_eq!(lex, Rule(RuleToken::Newline));
+        token_eq!(lex, Rule(RuleToken::Newline));
         token_match!(lex, Ucode(UsercodeToken::CCode(_)));
         assert_eq!(lex.next(), None);
     }

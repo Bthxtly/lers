@@ -1,13 +1,17 @@
 use logos::Logos;
 
 #[derive(Logos, Debug, PartialEq)]
-#[logos(skip r"[ \t\n\f]+")] // Ignore this regex pattern between tokens
+#[logos(skip r"[ ]+")] // Ignore this regex pattern between tokens
 #[logos(skip r"/\*.*?\*/")] // Ignore comments
 pub enum RuleToken<'a> {
-    #[regex(r"[^\s]+", |lex| lex.slice())] // any non-blank characters
+    #[regex(r"\n[^\s]+", |lex| &lex.slice()[1..])] // any non-blank characters from start of a line
     Pattern(&'a str),
+
     #[regex(r"(?s)\{[^\}]*}", |lex| lex.slice())] // anything surrounded by bracket
     Action(&'a str),
+
+    #[token("\n")]
+    Newline,
 }
 
 #[cfg(test)]
@@ -39,7 +43,7 @@ mod test {
 
         token_eq!(lex, RuleToken::Pattern("[0-9]+"));
         token_match!(lex, RuleToken::Action(_));
-
+        token_eq!(lex, RuleToken::Newline);
         token_eq!(lex, RuleToken::Pattern(".|\\n"));
         token_match!(lex, RuleToken::Action(_));
     }

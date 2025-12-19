@@ -116,6 +116,8 @@ impl<'a> CodeGen<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::lexer::Lexer;
+    use crate::parser::Parser;
 
     #[test]
     fn codegen() {
@@ -131,7 +133,7 @@ pattern2    { action2(); }
 pattern3    { action3(); }
 %%
 void helper() {}"#;
-        let mut codegen = CodeGen::new(crate::parser::Parser::new(source).parse());
+        let mut codegen = CodeGen::new(Parser::new(Lexer::new(&source)).parse());
         let rule_table = RuleTable {
             pair_count: 3,
             patterns: vec!["pattern1", "pattern2", "pattern3"],
@@ -144,7 +146,7 @@ void helper() {}"#;
     }
 
     fn target_code() -> String {
-        let target_code = format!(
+        format!(
             "{}{}{}{}{}{}",
             r#"/*** Definition Code ***/
     c code block
@@ -176,7 +178,6 @@ void action(int pattern_index) {
 /*** User Code ***/
 
 void helper() {}"#,
-        );
-        target_code
+        )
     }
 }
