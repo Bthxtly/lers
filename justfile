@@ -5,5 +5,6 @@ run:
   @cargo run
   @gcc lers.yy.c
   @./a.out
+  @rm a.out
 
 default: run
