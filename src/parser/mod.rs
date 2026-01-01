@@ -19,7 +19,6 @@ impl<'a> Parser<'a> {
 
     fn advance(&mut self) {
         self.current_token = self.lexer.next().and_then(|res| res.ok());
-        dbg!(&self.current_token);
     }
 
     pub fn parse(&mut self) -> Root<'a> {
@@ -62,8 +61,8 @@ impl<'a> Parser<'a> {
                     // ignore
                     self.advance();
                 }
-                DefinitionToken::Identifier(_) => unreachable!("consumed by parse_option"),
-                DefinitionToken::Pattern(_) => unreachable!("consumed by parse_name_pattern"),
+                DefinitionToken::Identifier(_) => unreachable!("consumed by parse_options"),
+                DefinitionToken::Pattern(_) => unreachable!("consumed by parse_definition_pairs"),
             }
         }
         definition_node

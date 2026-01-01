@@ -79,7 +79,7 @@ impl<'a> CodeGen<'a> {
         code.push_str(PREPARE);
         code.push_str(&self.gen_pattern_array());
         code.push_str(&self.gen_action_function());
-        code.push_str(MATCH);
+        code.push_str(REGEX);
         code.push_str(YYLEX);
         code
     }
@@ -172,7 +172,7 @@ void action(int pattern_index) {
   }
 }
 "#,
-            MATCH,
+            REGEX,
             YYLEX,
             r#"
 /*** User Code ***/

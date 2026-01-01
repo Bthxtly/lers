@@ -1,1 +1,6 @@
-[0-9]+ foo bar [0-9]+ .|\n
+lorem
+114514
+foooo
+bar1919810baz
+.|\n
+.n

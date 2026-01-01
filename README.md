@@ -7,16 +7,20 @@ Run the command below to generate a `lers.yy.c` file.
 
 `cargo run -- analyzer.l`
 
+## Feature
+This project uses [my own regular expression engine](https://github.com/bthxtly/re).
+
 ## Roadmap
 - [x] tokenize the lex file
 - [x] generate a basic `lers.yy.c` file without specific rules
 - [ ] apply rules
     - [x] apply for simple rules (literal)
-    - [ ] build a regular expression engine with Deterministic Finite Automate(DFA)
-    - [ ] translate from regular expression to C code
+    - [x] build with Non-deterministic Finite Automate(NFA)
+    - [ ] build with Deterministic Finite Automate(DFA)
+    - [x] translate from regular expression to C code
 - [ ] support multiple IO (file, stdin, stdout)
 - [ ] support `yy*` variables
     - [ ] yyin, yyout
-    - [ ] yytext, yyleng
+    - [x] yytext, yyleng
 
 And more...
