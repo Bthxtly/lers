@@ -41,6 +41,7 @@ pub const REGEX: &str = r#"
  * For embedding into lers projects
  */
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,9 +53,6 @@ pub const REGEX: &str = r#"
  */
 
 #define MAX 999
-#define bool char
-#define true 1
-#define false 0
 
 typedef unsigned short State;
 
@@ -123,7 +121,20 @@ void print_states(States *s) {
  * Lexer
  */
 
-typedef enum TokenType { LPAREN, RPAREN, REPEAT, OR, LITERAL, END } TokenType;
+typedef enum TokenType {
+  LPAREN,
+  RPAREN,
+  LBRACKET,
+  RBRACKET,
+  CARET,
+  DASH,
+  DOT,
+  ONE_OR_MORE,
+  REPEAT,
+  OR,
+  LITERAL,
+  END
+} TokenType;
 
 typedef struct Token {
   TokenType type;
@@ -158,18 +169,43 @@ Token *get_next_token(Lexer *lexer) {
     free(lexer->current_token);
 
   char current_char = *lexer->current_char;
-  if (current_char == '\0') {
+  switch (current_char) {
+  case '\0':
     lexer->current_token = new_token(END, '\0');
-  } else if (current_char == '(') {
+    break;
+  case '(':
     lexer->current_token = new_token(LPAREN, '(');
-  } else if (current_char == ')') {
+    break;
+  case ')':
     lexer->current_token = new_token(RPAREN, ')');
-  } else if (current_char == '|') {
-    lexer->current_token = new_token(OR, '|');
-  } else if (current_char == '*') {
+    break;
+  case '[':
+    lexer->current_token = new_token(LBRACKET, '[');
+    break;
+  case ']':
+    lexer->current_token = new_token(RBRACKET, ']');
+    break;
+  case '^':
+    lexer->current_token = new_token(CARET, '^');
+    break;
+  case '-':
+    lexer->current_token = new_token(DASH, '-');
+    break;
+  case '.':
+    lexer->current_token = new_token(DOT, '.');
+    break;
+  case '+':
+    lexer->current_token = new_token(ONE_OR_MORE, '+');
+    break;
+  case '*':
     lexer->current_token = new_token(REPEAT, '*');
-  } else {
+    break;
+  case '|':
+    lexer->current_token = new_token(OR, '|');
+    break;
+  default:
     lexer->current_token = new_token(LITERAL, current_char);
+    break;
   }
   ++(lexer->current_char);
 
@@ -178,28 +214,30 @@ Token *get_next_token(Lexer *lexer) {
 
 /*
  * ============================================================================
- * builder/parser.c - Parser for regular expressions
+ * builder/ast.c - Abstract Syntax Tree
  * ============================================================================
- */
-
-
-/*
- * Parser
  */
 
 typedef enum AstType {
   LiteralNode,
+  SetNode,
   AndNode,
   OrNode,
   RepeatNode,
   SurroundNode,
 } AstType;
 
+typedef struct Ast Ast;
+
 typedef struct AstLiteral {
   char value;
 } AstLiteral;
 
-typedef struct Ast Ast;
+typedef struct Vector_char Vector_char;
+typedef struct AstSet {
+  Vector_char *set;
+  bool is_neg;
+} AstSet;
 
 typedef struct AstAnd {
   Ast *r1;
@@ -221,6 +259,7 @@ typedef struct AstSurround {
 
 typedef union AstData {
   AstLiteral literal;
+  AstSet set;
   AstAnd and;
   AstOr or;
   AstRepeat repeat;
@@ -238,6 +277,15 @@ static Ast *new_ast_literal(char value) {
   node->type = LiteralNode;
   node->data = (AstData *)malloc(sizeof(AstData));
   node->data->literal.value = value;
+  return node;
+}
+
+static Ast *new_ast_set(Vector_char *set, bool is_neg) {
+  Ast *node = (Ast *)malloc(sizeof(Ast));
+  node->type = SetNode;
+  node->data = (AstData *)malloc(sizeof(AstData));
+  node->data->set.set = set;
+  node->data->set.is_neg = is_neg;
   return node;
 }
 
@@ -275,6 +323,27 @@ static Ast *new_ast_surround(Ast *r) {
   return node;
 }
 
+/* clone */
+static Ast *clone_ast(Ast *r) {
+  if (r == NULL)
+    return NULL;
+  switch (r->type) {
+  case LiteralNode:
+    return new_ast_literal(r->data->literal.value);
+  case SetNode:
+    return new_ast_set(r->data->set.set, r->data->set.is_neg);
+  case AndNode:
+    return new_ast_and(clone_ast(r->data->and.r1), clone_ast(r->data->and.r2));
+  case OrNode:
+    return new_ast_or(clone_ast(r->data->or.r1), clone_ast(r->data->or.r2));
+  case RepeatNode:
+    return new_ast_repeat(clone_ast(r->data->repeat.r));
+  case SurroundNode:
+    return clone_ast(clone_ast(r->data->surround.r));
+  }
+  return NULL; /* unreachable */
+}
+
 /* free */
 void free_ast(Ast *node) {
   if (node == NULL)
@@ -282,6 +351,8 @@ void free_ast(Ast *node) {
   switch (node->type) {
   case LiteralNode:
     /* nothing to free */
+    break;
+  case SetNode:
     break;
   case AndNode:
     free_ast(node->data->and.r1);
@@ -301,6 +372,17 @@ void free_ast(Ast *node) {
   free(node->data);
   free(node);
 }
+
+/*
+ * ============================================================================
+ * builder/parser.c - Parser for regular expressions
+ * ============================================================================
+ */
+
+
+/* pre-define */
+Vector_char *new_vector_char();
+int push_vector_char(Vector_char *vec, char value);
 
 typedef struct Parser {
   Lexer *lexer;
@@ -329,6 +411,7 @@ static Ast *parse_expr(Parser *parser);
 static Ast *parse_term(Parser *parser);
 static Ast *parse_factor(Parser *parser);
 static Ast *parse_base(Parser *parser);
+static Ast *parse_range(Parser *parser);
 
 /*
  * expr := term*
@@ -336,6 +419,9 @@ static Ast *parse_base(Parser *parser);
 static Ast *parse_expr(Parser *parser) {
   Ast *node = parse_term(parser);
   while (parser->current_token->type == LITERAL ||
+         parser->current_token->type == CARET ||
+         parser->current_token->type == DOT ||
+         parser->current_token->type == LBRACKET ||
          parser->current_token->type == LPAREN) {
     Ast *right = parse_term(parser);
     node = new_ast_and(node, right);
@@ -357,34 +443,98 @@ static Ast *parse_term(Parser *parser) {
 }
 
 /*
- * factor := base ('*')*
+ * factor := base ('*')
+ *           base ('+')
  */
 static Ast *parse_factor(Parser *parser) {
   Ast *node = parse_base(parser);
-  while (parser->current_token->type == REPEAT) {
+  if (parser->current_token->type == REPEAT) {
     eat(parser, REPEAT);
     node = new_ast_repeat(node);
+  } else if (parser->current_token->type == ONE_OR_MORE) {
+    eat(parser, ONE_OR_MORE);
+    node = new_ast_and(clone_ast(node), new_ast_repeat(node));
   }
   return node;
 }
 
 /*
- * base := LITERAL | '(' expr ')'
+ * base := LITERAL | CARET
+ *       | DOT
+ *       | '[' range ']'
+ *       | '(' expr ')'
  */
 static Ast *parse_base(Parser *parser) {
-  if (parser->current_token->type == LITERAL) {
+  switch (parser->current_token->type) {
+  case LITERAL: {
     char value = parser->current_token->value;
     eat(parser, LITERAL);
     return new_ast_literal(value);
-  } else if (parser->current_token->type == LPAREN) {
+  }
+  case CARET: {
+    char value = parser->current_token->value;
+    eat(parser, CARET);
+    return new_ast_literal(value);
+  }
+  case DOT: {
+    /* anything but newline */
+    eat(parser, DOT);
+    Vector_char *set = new_vector_char();
+    push_vector_char(set, '\n');
+    return new_ast_set(set, true);
+  }
+  case LBRACKET: {
+    eat(parser, LBRACKET);
+    Ast *node = parse_range(parser);
+    eat(parser, RBRACKET);
+    return node;
+  }
+  case LPAREN: {
     eat(parser, LPAREN);
     Ast *node = parse_expr(parser);
     eat(parser, RPAREN);
     return new_ast_surround(node);
-  } else {
+  }
+  default: {
     printf("unexpected token: %d\n", parser->current_token->type);
     exit(1);
   }
+  }
+}
+
+/*
+ * range or set
+ * range := CARET
+ *        | LITERAL
+ *        | LITERAL DASH LITERAL
+ *        | range
+ */
+static Ast *parse_range(Parser *parser) {
+  /* parse negate ^ */
+  bool is_neg = false;
+  if (parser->current_token->type == CARET) {
+    is_neg = true;
+    eat(parser, CARET);
+  }
+
+  Vector_char *set = new_vector_char();
+  while (parser->current_token->type != RBRACKET) {
+    char from = parser->current_token->value;
+    eat(parser, LITERAL);
+    Ast *right;
+    /* range */
+    if (parser->current_token->type == DASH) {
+      eat(parser, DASH);
+      char to = parser->current_token->value;
+      eat(parser, LITERAL);
+      for (char c = from; c <= to; ++c)
+        push_vector_char(set, c);
+    }
+    /* set */
+    else
+      push_vector_char(set, from);
+  }
+  return new_ast_set(set, is_neg);
 }
 
 /* Entry point for parsing */
@@ -399,17 +549,125 @@ Ast *parse(Parser *parser) {
 
 /*
  * ============================================================================
+ * edge.c - Edges between states
+ * ============================================================================
+ */
+
+#define TYPE char
+/*
+ * create new, push, free functions for TYPE
+ * usage:
+ *   #define TYPE int
+ *   #include <this_file>
+ */
+
+#ifndef TYPE
+#error "define TYPE first"
+#else
+
+#define CAT1(a, b) a##b
+#define CAT(a, b) CAT1(a, b)
+#define APPEND_TYPE(a) CAT(CAT(a, _), TYPE)
+#define TYPE_NAME APPEND_TYPE(Vector)
+
+#include <stddef.h>
+#include <stdlib.h>
+
+typedef struct TYPE_NAME {
+  TYPE *data;
+  size_t size;
+  size_t capacity;
+} TYPE_NAME;
+
+/* create a new vector */
+TYPE_NAME *APPEND_TYPE(new_vector)() {
+  TYPE_NAME *vec = (TYPE_NAME *)malloc(sizeof(TYPE_NAME));
+  if (!vec)
+    return NULL;
+  vec->size = 0;
+  vec->capacity = 4;
+  vec->data = (TYPE *)malloc(vec->capacity * sizeof(TYPE));
+  if (!vec->data) {
+    free(vec);
+    return NULL;
+  }
+  return vec;
+}
+
+/* push a value to the vector */
+int APPEND_TYPE(push_vector)(TYPE_NAME *vec, TYPE value) {
+  if (vec->size >= vec->capacity) {
+    size_t new_capacity = vec->capacity * 2;
+    TYPE *new_data = (TYPE *)realloc(vec->data, new_capacity * sizeof(TYPE));
+    if (!new_data)
+      return -1;
+    vec->data = new_data;
+    vec->capacity = new_capacity;
+  }
+  vec->data[vec->size++] = value;
+  return 0;
+}
+
+/* free the vector */
+void APPEND_TYPE(free_vector)(TYPE_NAME *vec) {
+  if (vec) {
+    free(vec->data);
+    free(vec);
+  }
+}
+
+#undef TYPE
+#endif /* ifndef TYPE */
+
+typedef struct Label {
+  enum {
+    CHAR,
+    SET,
+    NEG_SET,
+  } type;
+
+  union {
+    char symbol;
+    Vector_char *set;
+  } data;
+} Label;
+
+Label *new_literal_label(char symbol) {
+  Label *label = (Label *)malloc(sizeof(Label));
+  label->type = CHAR;
+  label->data.symbol = symbol;
+  return label;
+}
+
+Label *new_set_label(Vector_char *set, bool is_neg) {
+  Label *label = (Label *)malloc(sizeof(Label));
+  label->type = (is_neg ? NEG_SET : SET);
+  label->data.set = set;
+  return label;
+}
+
+typedef struct Edge {
+  Label *label;
+  State from;
+  State to;
+} Edge;
+
+/* create a new edge */
+Edge *new_edge(Label *label, State from, State to) {
+  Edge *e = (Edge *)malloc(sizeof(Edge));
+  e->label = label;
+  e->from = from;
+  e->to = to;
+  return e;
+}
+
+/*
+ * ============================================================================
  * nfa.c - NFA (Non-deterministic Finite Automaton) implementation
  * ============================================================================
  */
 
 char EPSILON = -1;
-
-typedef struct Edge {
-  char symbol;
-  State from;
-  State to;
-} Edge;
 
 typedef struct NFA {
   State states_count;
@@ -425,15 +683,6 @@ NFA *new_nfa() {
   nfa->target_states = NULL;
   nfa->edges_count = 0;
   return nfa;
-}
-
-/* create a new edge with given symbol, from, to */
-Edge *new_edge(char symbol, State from, State to) {
-  Edge *e = (Edge *)malloc(sizeof(Edge));
-  e->symbol = symbol;
-  e->from = from;
-  e->to = to;
-  return e;
 }
 
 /* set the states count of an NFA */
@@ -452,12 +701,29 @@ void push_edge(NFA *nfa, Edge *e) {
 
 /* print edges in the form of `from --symbol--> to` */
 void print_edges(NFA *nfa) {
+  printf("=== NFA\n");
   for (size_t i = 0; i < nfa->edges_count; ++i) {
     Edge *e = nfa->edges[i];
-    if (e->symbol != EPSILON)
-      printf("%d --%c--> %d\n", e->from, e->symbol, e->to);
-    else
-      printf("%d --ε--> %d\n", e->from, e->to);
+    Label *l = e->label;
+    if (l->type == CHAR) {
+      char symbol = l->data.symbol;
+      if (symbol == EPSILON)
+        printf("%2d ---ε---> %2d\n", e->from, e->to);
+      else
+        printf("%2d ---%c---> %2d\n", e->from, symbol, e->to);
+    } else if (l->type == SET || NEG_SET) {
+      printf("%2d --", e->from);
+      if (l->type == NEG_SET)
+        printf("^");
+      for (size_t i = 0; i < e->label->data.set->size; ++i) {
+        char c = e->label->data.set->data[i];
+        if (c == '\n')
+          printf("↵");
+        else
+          printf("%c", c);
+      }
+      printf("--> %2d\n", e->to);
+    }
   }
 }
 
@@ -465,6 +731,7 @@ void print_edges(NFA *nfa) {
 void free_nfa(NFA *nfa) {
   /* free edges */
   for (size_t i = 0; i < nfa->edges_count; ++i) {
+    free(nfa->edges[i]->label);
     free(nfa->edges[i]);
   }
   /* free target states */
@@ -476,7 +743,25 @@ void free_nfa(NFA *nfa) {
   nfa = NULL;
 }
 
-/* return all states reachable with epsilon lables from the given states */
+static bool accept(Label *label, char input) {
+  switch (label->type) {
+  case CHAR:
+    return input == label->data.symbol;
+  case SET:
+    for (size_t i = 0; i < label->data.set->size; ++i)
+      if (label->data.set->data[i] == input)
+        return true;
+    return false;
+  case NEG_SET:
+    for (size_t i = 0; i < label->data.set->size; ++i)
+      if (label->data.set->data[i] == input)
+        return false;
+    return true;
+  }
+  exit(EXIT_FAILURE);
+}
+
+/* return all states reachable with epsilon labels from the given states */
 States *epsilon_closure(NFA *nfa, States *s) {
   States *new_s = new_states();
 
@@ -491,7 +776,7 @@ States *epsilon_closure(NFA *nfa, States *s) {
     State state = s->states[s->len];
     for (size_t i = 0; i < nfa->edges_count; ++i) {
       Edge *e = nfa->edges[i];
-      if (e->symbol == EPSILON && e->from == state) {
+      if (e->from == state && accept(e->label, EPSILON)) {
         State next_state = e->to;
         if (!have_state(new_s, next_state)) {
           push_state(new_s, next_state);
@@ -512,7 +797,7 @@ States *move(NFA *nfa, States *s, char symbol) {
   for (size_t i = 0; i < s->len; ++i) {
     for (size_t j = 0; j < nfa->edges_count; ++j) {
       Edge *e = nfa->edges[j];
-      if (e->symbol == symbol && e->from == s->states[i]) {
+      if (e->from == s->states[i] && accept(e->label, symbol)) {
         State next_state = e->to;
         if (!have_state(new_s, next_state)) {
           push_state(new_s, next_state);
@@ -558,12 +843,17 @@ static void decrease_state_counts() { --g_state_counts; }
 
 /* add an ε-labled edge to the NFA */
 static void add_epsilon(NFA *nfa, State from, State to) {
-  push_edge(nfa, new_edge(EPSILON, from, to));
+  push_edge(nfa, new_edge(new_literal_label(EPSILON), from, to));
 }
 
 /* add a symbol-labled edge to the NFA */
 static void add_symbol(NFA *nfa, State from, State to, char symbol) {
-  push_edge(nfa, new_edge(symbol, from, to));
+  push_edge(nfa, new_edge(new_literal_label(symbol), from, to));
+}
+
+static void add_set(NFA *nfa, State from, State to, Vector_char *set,
+                    bool is_neg) {
+  push_edge(nfa, new_edge(new_set_label(set, is_neg), from, to));
 }
 
 /* move all edges from source NFA to destination NFA */
@@ -585,6 +875,15 @@ static NFAFragment *ast2nfa_fragment(Ast *ast) {
     State start = increase_state_counts();
     State accept = increase_state_counts();
     add_symbol(nfa, start, accept, ast->data->literal.value);
+    return new_nfa_fragment(nfa, start, accept);
+  }
+
+  case SetNode: {
+    /* START --set--> END */
+    NFA *nfa = new_nfa();
+    State start = increase_state_counts();
+    State accept = increase_state_counts();
+    add_set(nfa, start, accept, ast->data->set.set, ast->data->set.is_neg);
     return new_nfa_fragment(nfa, start, accept);
   }
 
