@@ -6,14 +6,19 @@ mod parser;
 use codegen::CodeGen;
 use lexer::Lexer;
 use parser::Parser;
-use std::fs;
+use std::{env, fs};
 
 fn main() {
-    read_and_parse_and_write();
+    let args: Vec<String> = env::args().collect();
+    if let Some(filename) = args.get(1) {
+        read_and_parse_and_write(&filename);
+    } else {
+        read_and_parse_and_write("analyzer.l");
+    }
 }
 
-fn read_and_parse_and_write() {
-    let source = fs::read_to_string("analyzer.l").expect("Unable to read file");
+fn read_and_parse_and_write(filename: &str) {
+    let source = fs::read_to_string(filename).expect("Unable to read file");
     let lexer = Lexer::new(&source);
     let mut parser = Parser::new(lexer);
     let ast = parser.parse();
