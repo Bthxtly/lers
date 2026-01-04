@@ -228,100 +228,65 @@ typedef enum AstType {
 } AstType;
 
 typedef struct Ast Ast;
-
-typedef struct AstLiteral {
-  char value;
-} AstLiteral;
-
 typedef struct Vector_char Vector_char;
-typedef struct AstSet {
-  Vector_char *set;
-  bool is_neg;
-} AstSet;
 
-typedef struct AstAnd {
-  Ast *r1;
-  Ast *r2;
-} AstAnd;
+typedef struct Ast {
+  enum { AstLiteral, AstSet, AstAnd, AstOr, AstRepeat, AstSurround } type;
 
-typedef struct AstOr {
-  Ast *r1;
-  Ast *r2;
-} AstOr;
+  union {
+    struct AstLiteral {
+      char value;
+    } AstLiteral;
 
-typedef struct AstRepeat {
-  Ast *r;
-} AstRepeat;
+    struct AstSet {
+      Vector_char *set;
+      bool is_neg;
+    } AstSet;
 
-typedef struct AstSurround {
-  Ast *r;
-} AstSurround;
+    struct AstAnd {
+      Ast *r1;
+      Ast *r2;
+    } AstAnd;
 
-typedef union AstData {
-  AstLiteral literal;
-  AstSet set;
-  AstAnd and;
-  AstOr or;
-  AstRepeat repeat;
-  AstSurround surround;
-} AstData;
+    struct AstOr {
+      Ast *r1;
+      Ast *r2;
+    } AstOr;
 
-struct Ast {
-  AstType type;
-  AstData *data;
-};
+    struct AstRepeat {
+      Ast *r;
+    } AstRepeat;
+
+    struct AstSurround {
+      Ast *r;
+    } AstSurround;
+  } data;
+} Ast;
+
+Ast *new_ast(Ast ast) {
+  Ast *p = malloc(sizeof(Ast));
+  if (p != NULL)
+    *p = ast;
+  return p;
+}
+
+#define NEW_AST(tag, ...)                                                      \
+  new_ast((Ast){tag, {.tag = (struct tag){__VA_ARGS__}}})
 
 /* newer */
-static Ast *new_ast_literal(char value) {
-  Ast *node = (Ast *)malloc(sizeof(Ast));
-  node->type = LiteralNode;
-  node->data = (AstData *)malloc(sizeof(AstData));
-  node->data->literal.value = value;
-  return node;
-}
+static Ast *new_ast_literal(char value) { return NEW_AST(AstLiteral, value); }
 
 static Ast *new_ast_set(Vector_char *set, bool is_neg) {
-  Ast *node = (Ast *)malloc(sizeof(Ast));
-  node->type = SetNode;
-  node->data = (AstData *)malloc(sizeof(AstData));
-  node->data->set.set = set;
-  node->data->set.is_neg = is_neg;
-  return node;
+  return NEW_AST(AstSet, set, is_neg);
 }
 
-static Ast *new_ast_and(Ast *r1, Ast *r2) {
-  Ast *node = (Ast *)malloc(sizeof(Ast));
-  node->type = AndNode;
-  node->data = (AstData *)malloc(sizeof(AstData));
-  node->data->and.r1 = r1;
-  node->data->and.r2 = r2;
-  return node;
-}
+static Ast *new_ast_and(Ast *r1, Ast *r2) { return NEW_AST(AstAnd, r1, r2); }
 
-static Ast *new_ast_or(Ast *r1, Ast *r2) {
-  Ast *node = (Ast *)malloc(sizeof(Ast));
-  node->type = OrNode;
-  node->data = (AstData *)malloc(sizeof(AstData));
-  node->data->or.r1 = r1;
-  node->data->or.r2 = r2;
-  return node;
-}
+static Ast *new_ast_or(Ast *r1, Ast *r2) { return NEW_AST(AstOr, r1, r2); }
 
-static Ast *new_ast_repeat(Ast *r) {
-  Ast *node = (Ast *)malloc(sizeof(Ast));
-  node->type = RepeatNode;
-  node->data = (AstData *)malloc(sizeof(AstData));
-  node->data->repeat.r = r;
-  return node;
-}
+static Ast *new_ast_repeat(Ast *r) { return NEW_AST(AstRepeat, r); }
 
-static Ast *new_ast_surround(Ast *r) {
-  Ast *node = (Ast *)malloc(sizeof(Ast));
-  node->type = SurroundNode;
-  node->data = (AstData *)malloc(sizeof(AstData));
-  node->data->surround.r = r;
-  return node;
-}
+static Ast *new_ast_surround(Ast *r) { return NEW_AST(AstSurround, r); }
 
 /* clone */
 static Ast *clone_ast(Ast *r) {
@@ -329,19 +294,49 @@ static Ast *clone_ast(Ast *r) {
     return NULL;
   switch (r->type) {
   case LiteralNode:
-    return new_ast_literal(r->data->literal.value);
+    return new_ast_literal(r->data.AstLiteral.value);
   case SetNode:
-    return new_ast_set(r->data->set.set, r->data->set.is_neg);
+    return new_ast_set(r->data.AstSet.set, r->data.AstSet.is_neg);
   case AndNode:
-    return new_ast_and(clone_ast(r->data->and.r1), clone_ast(r->data->and.r2));
+    return new_ast_and(clone_ast(r->data.AstAnd.r1),
+                       clone_ast(r->data.AstAnd.r2));
   case OrNode:
-    return new_ast_or(clone_ast(r->data->or.r1), clone_ast(r->data->or.r2));
+    return new_ast_or(clone_ast(r->data.AstOr.r1), clone_ast(r->data.AstOr.r2));
   case RepeatNode:
-    return new_ast_repeat(clone_ast(r->data->repeat.r));
+    return new_ast_repeat(clone_ast(r->data.AstRepeat.r));
   case SurroundNode:
-    return clone_ast(clone_ast(r->data->surround.r));
+    return clone_ast(clone_ast(r->data.AstSurround.r));
   }
   return NULL; /* unreachable */
+}
+
+/* comparison */
+bool equal_ast(Ast *a, Ast *b) {
+  if (a == b)
+    return true;
+  if (a == NULL || b == NULL)
+    return false;
+  if (a->type != b->type)
+    return false;
+
+  switch (a->type) {
+  case LiteralNode:
+    return a->data.AstLiteral.value == b->data.AstLiteral.value;
+  case SetNode:
+    return true; /* ignore it */
+  case AndNode:
+    return equal_ast(a->data.AstAnd.r1, b->data.AstAnd.r1) &&
+           equal_ast(a->data.AstAnd.r2, b->data.AstAnd.r2);
+  case OrNode:
+    return equal_ast(a->data.AstOr.r1, b->data.AstOr.r1) &&
+           equal_ast(a->data.AstOr.r2, b->data.AstOr.r2);
+  case RepeatNode:
+    return equal_ast(a->data.AstRepeat.r, b->data.AstRepeat.r);
+  case SurroundNode:
+    return equal_ast(a->data.AstSurround.r, b->data.AstSurround.r);
+  default:
+    return false;
+  }
 }
 
 /* free */
@@ -353,23 +348,23 @@ void free_ast(Ast *node) {
     /* nothing to free */
     break;
   case SetNode:
+    /* nothing to free */
     break;
   case AndNode:
-    free_ast(node->data->and.r1);
-    free_ast(node->data->and.r2);
+    free_ast(node->data.AstAnd.r1);
+    free_ast(node->data.AstAnd.r2);
     break;
   case OrNode:
-    free_ast(node->data->or.r1);
-    free_ast(node->data->or.r2);
+    free_ast(node->data.AstOr.r1);
+    free_ast(node->data.AstOr.r2);
     break;
   case RepeatNode:
-    free_ast(node->data->repeat.r);
+    free_ast(node->data.AstRepeat.r);
     break;
   case SurroundNode:
-    free_ast(node->data->surround.r);
+    free_ast(node->data.AstSurround.r);
     break;
   }
-  free(node->data);
   free(node);
 }
 
@@ -414,30 +409,30 @@ static Ast *parse_base(Parser *parser);
 static Ast *parse_range(Parser *parser);
 
 /*
- * expr := term*
+ * expr := term ('|' term)*
  */
 static Ast *parse_expr(Parser *parser) {
   Ast *node = parse_term(parser);
-  while (parser->current_token->type == LITERAL ||
-         parser->current_token->type == CARET ||
-         parser->current_token->type == DOT ||
-         parser->current_token->type == LBRACKET ||
-         parser->current_token->type == LPAREN) {
+  while (parser->current_token->type == OR) {
+    eat(parser, OR);
     Ast *right = parse_term(parser);
-    node = new_ast_and(node, right);
+    node = new_ast_or(node, right);
   }
   return node;
 }
 
 /*
- * term := factor ('|' factor)*
+ * term := factor*
  */
 static Ast *parse_term(Parser *parser) {
   Ast *node = parse_factor(parser);
-  while (parser->current_token->type == OR) {
-    eat(parser, OR);
+  while (parser->current_token->type == LITERAL ||
+         parser->current_token->type == CARET ||
+         parser->current_token->type == DOT ||
+         parser->current_token->type == LBRACKET ||
+         parser->current_token->type == LPAREN) {
     Ast *right = parse_factor(parser);
-    node = new_ast_or(node, right);
+    node = new_ast_and(node, right);
   }
   return node;
 }
@@ -744,6 +739,9 @@ void free_nfa(NFA *nfa) {
 }
 
 static bool accept(Label *label, char input) {
+  if (input == EPSILON)
+    return label->type == CHAR && label->data.symbol == EPSILON;
+
   switch (label->type) {
   case CHAR:
     return input == label->data.symbol;
@@ -874,7 +872,7 @@ static NFAFragment *ast2nfa_fragment(Ast *ast) {
     NFA *nfa = new_nfa();
     State start = increase_state_counts();
     State accept = increase_state_counts();
-    add_symbol(nfa, start, accept, ast->data->literal.value);
+    add_symbol(nfa, start, accept, ast->data.AstLiteral.value);
     return new_nfa_fragment(nfa, start, accept);
   }
 
@@ -883,15 +881,15 @@ static NFAFragment *ast2nfa_fragment(Ast *ast) {
     NFA *nfa = new_nfa();
     State start = increase_state_counts();
     State accept = increase_state_counts();
-    add_set(nfa, start, accept, ast->data->set.set, ast->data->set.is_neg);
+    add_set(nfa, start, accept, ast->data.AstSet.set, ast->data.AstSet.is_neg);
     return new_nfa_fragment(nfa, start, accept);
   }
 
   case AndNode: {
     /* START --left--> (left end & right start) --right--> END */
-    NFAFragment *left = ast2nfa_fragment(ast->data->and.r1);
+    NFAFragment *left = ast2nfa_fragment(ast->data.AstAnd.r1);
     decrease_state_counts(); /* concatenate left end and right start */
-    NFAFragment *right = ast2nfa_fragment(ast->data->and.r2);
+    NFAFragment *right = ast2nfa_fragment(ast->data.AstAnd.r2);
     move_edges(left->nfa, right->nfa);
     free(right->nfa);
     NFAFragment *result =
@@ -909,8 +907,8 @@ static NFAFragment *ast2nfa_fragment(Ast *ast) {
      */
     NFA *nfa = new_nfa();
     State start = increase_state_counts();
-    NFAFragment *left = ast2nfa_fragment(ast->data->or.r1);
-    NFAFragment *right = ast2nfa_fragment(ast->data->or.r2);
+    NFAFragment *left = ast2nfa_fragment(ast->data.AstOr.r1);
+    NFAFragment *right = ast2nfa_fragment(ast->data.AstOr.r2);
     State accept = increase_state_counts();
     add_epsilon(nfa, start, left->start);
     add_epsilon(nfa, start, right->start);
@@ -936,7 +934,7 @@ static NFAFragment *ast2nfa_fragment(Ast *ast) {
      */
     NFA *nfa = new_nfa();
     State start = increase_state_counts();
-    NFAFragment *body = ast2nfa_fragment(ast->data->repeat.r);
+    NFAFragment *body = ast2nfa_fragment(ast->data.AstRepeat.r);
     State accept = increase_state_counts();
     move_edges(nfa, body->nfa);
     add_epsilon(nfa, start, body->start);
@@ -951,7 +949,7 @@ static NFAFragment *ast2nfa_fragment(Ast *ast) {
 
   case SurroundNode: {
     /* START --r--> END */
-    return ast2nfa_fragment(ast->data->surround.r);
+    return ast2nfa_fragment(ast->data.AstSurround.r);
   }
 
   default:

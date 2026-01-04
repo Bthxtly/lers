@@ -1,5 +1,7 @@
 /target
 
+src/codegen/re_lib.c
+
 lers.yy.c
 lex.yy.c
 a.out
