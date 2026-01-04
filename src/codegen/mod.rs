@@ -88,12 +88,14 @@ impl<'a> CodeGen<'a> {
         let mut code = String::new();
         code.push_str(&format!(
             "#define g_pattern_count {}\n",
-            self.rule_table.pair_count
+            self.rule_table.pair_count + 1
         ));
         code.push_str("char *g_patterns[] = {\n");
         for pattern in &self.rule_table.patterns {
             code.push_str(&format!("  \"{}\",\n", *pattern));
         }
+        // match unmatched characters
+        code.push_str(&format!("  \".|\\n\",\n"));
         code.push_str("};\n");
         code.push('\n');
         code
@@ -108,6 +110,11 @@ impl<'a> CodeGen<'a> {
                 i, action
             ));
         }
+        // echo unmatched characters
+        code.push_str(&format!(
+            "  if (pattern_index == {}) {{ printf(\"%s\", yytext); }}\n",
+            self.rule_table.actions.len()
+        ));
         code.push_str("}\n");
         code
     }
@@ -165,6 +172,7 @@ char *g_patterns[] = {
   "[0-9]+",
   "[0-9]+",
   "pattern3",
+  ".",
 };
 
 void action(int pattern_index) {
@@ -177,6 +185,7 @@ void action(int pattern_index) {
   if (pattern_index == 2) {
 { action3(); }
   }
+  if (pattern_index == 3) { printf("%c", yytext); }
 }
 "#,
             REGEX,

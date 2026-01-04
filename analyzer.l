@@ -21,7 +21,6 @@ number  {digit}+
 lorem     { printf("ipsum\n"); }
 fo*       { printf("%s has %d o's\n", yytext, yyleng-1); }
 \n        { /* do nothing */ }
-.         { printf("Unknow character: %s\n", yytext); }
 
 %%
 /*** C Code section ***/
