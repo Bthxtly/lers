@@ -1,5 +1,5 @@
 mod code;
-mod option;
+mod lers_option;
 
 use crate::ast::*;
 use code::*;
@@ -21,7 +21,7 @@ impl<'a> RuleTable<'a> {
 
 pub struct CodeGen<'a> {
     ast: Root<'a>,
-    options: Vec<option::Option>,
+    options: Vec<lers_option::LersOption>,
     rule_table: RuleTable<'a>,
 }
 
@@ -67,7 +67,7 @@ impl<'a> CodeGen<'a> {
         if let Some(options) = &self.ast.definition_node.as_ref().unwrap().options {
             for option in options {
                 match option.value {
-                    "noyywrap" => self.options.push(option::Option::Noyywrap),
+                    "noyywrap" => self.options.push(lers_option::LersOption::Noyywrap),
                     _ => {}
                 }
             }
@@ -127,22 +127,29 @@ mod test {
 %{
     c code block
 %}
+
+digit       [0-9]
+number      {digit}+
+name3       pattern3
+
 %%
-pattern1    { action1(); }
-pattern2    { action2(); }
+
+{digit}+    { action1(); }
+{number}    { action2(); }
 pattern3    { action3(); }
+
 %%
 void helper() {}"#;
         let mut codegen = CodeGen::new(Parser::new(Lexer::new(&source)).parse());
         let rule_table = RuleTable {
             pair_count: 3,
-            patterns: vec!["pattern1", "pattern2", "pattern3"],
+            patterns: vec!["[0-9]+", "[0-9]+", "pattern3"],
             actions: vec!["{ action1(); }", "{ action2(); }", "{ action3(); }"],
         };
         let code = codegen.generate();
         assert_eq!(code, target_code());
         assert_eq!(codegen.rule_table, rule_table);
-        assert_eq!(codegen.options, vec![option::Option::Noyywrap]);
+        assert_eq!(codegen.options, vec![lers_option::LersOption::Noyywrap]);
     }
 
     fn target_code() -> String {
@@ -155,8 +162,8 @@ void helper() {}"#;
             PREPARE,
             r#"#define g_pattern_count 3
 char *g_patterns[] = {
-  "pattern1",
-  "pattern2",
+  "[0-9]+",
+  "[0-9]+",
   "pattern3",
 };
 

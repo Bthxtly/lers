@@ -13,7 +13,7 @@ number  {digit}+
     /*** Rules section ***/
 
     /* [0-9]+ matches a string of one or more digits */
-[0-9]+  {
+{number}  {
               /* yytext is a string containing the matched text. */
               printf("Saw an integer: %s\n", yytext);
           }

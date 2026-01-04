@@ -1,4 +1,4 @@
 #[derive(Debug, PartialEq)]
-pub enum Option {
+pub enum LersOption {
     Noyywrap,
 }

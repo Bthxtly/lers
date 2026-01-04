@@ -3,6 +3,7 @@ use crate::ast::{
     UserCodeNode,
 };
 use crate::lexer::{DefinitionToken, Lexer, RuleToken, Token, UsercodeToken};
+use std::collections::HashMap;
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
@@ -35,11 +36,15 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Root {
+        let mut root = Root {
             definition_node,
             rule_node,
             usercode_node,
-        }
+        };
+
+        Self::apply_definition(&mut root);
+
+        root
     }
 
     // region: parse definition
@@ -131,6 +136,62 @@ impl<'a> Parser<'a> {
         }
         usercode_node
     }
+
+    // apply name-definition pairs in ast.definition_node.definitions to ast.rule_node.rules
+    fn apply_definition(root: &mut Root) {
+        // Build name -> definition map
+        let definitions = if let Some(def_node) = &root.definition_node {
+            if let Some(defs) = &def_node.definitions {
+                let mut map = HashMap::new();
+                for def in defs {
+                    map.insert(def.name, def.definition);
+                }
+                map
+            } else {
+                return;
+            }
+        } else {
+            return;
+        };
+
+        // Helper to recursively expand a pattern
+        fn expand_pattern<'a>(pattern: &'a str, defs: &HashMap<&'a str, &'a str>) -> String {
+            let mut result = String::from(pattern);
+            let mut changed = true;
+            while changed {
+                changed = false;
+                let mut new_result = String::new();
+                let mut i = 0;
+                while i < result.len() {
+                    if result[i..].starts_with('{') {
+                        if let Some(end) = result[i..].find('}') {
+                            let name = &result[i + 1..i + end];
+                            if let Some(def) = defs.get(name) {
+                                new_result.push_str(def);
+                                i += end + 1;
+                                changed = true;
+                                continue;
+                            }
+                        }
+                    }
+                    new_result.push(result.as_bytes()[i] as char);
+                    i += 1;
+                }
+                result = new_result;
+            }
+            result
+        }
+
+        // apply to rules
+        if let Some(rule_node) = &mut root.rule_node {
+            if let Some(rules) = &mut rule_node.rules {
+                for rule in rules.iter_mut() {
+                    let expanded = expand_pattern(rule.pattern, &definitions);
+                    rule.pattern = Box::leak(expanded.into_boxed_str());
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -146,14 +207,14 @@ mod test {
     c code block
 %}
 
-name1       pattern1
-name2       pattern2
+digit       [0-9]
+number      {digit}+
 name3       pattern3
 
 %%
 
-pattern1    { action1(); }
-pattern2    { action2(); }
+{digit}+    { action1(); }
+{number}    { action2(); }
 pattern3    { action3(); }
 
 %%
@@ -170,12 +231,12 @@ void helper() {}"#;
                 }),
                 definitions: Some(vec![
                     DefinitionPairNode {
-                        name: "name1",
-                        definition: "pattern1",
+                        name: "digit",
+                        definition: "[0-9]",
                     },
                     DefinitionPairNode {
-                        name: "name2",
-                        definition: "pattern2",
+                        name: "number",
+                        definition: "{digit}+",
                     },
                     DefinitionPairNode {
                         name: "name3",
@@ -186,11 +247,11 @@ void helper() {}"#;
             rule_node: Some(RuleNode {
                 rules: Some(vec![
                     RulePairNode {
-                        pattern: "pattern1",
+                        pattern: "[0-9]+",
                         action: "{ action1(); }",
                     },
                     RulePairNode {
-                        pattern: "pattern2",
+                        pattern: "[0-9]+",
                         action: "{ action2(); }",
                     },
                     RulePairNode {
