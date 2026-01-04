@@ -7,4 +7,10 @@ run:
   @./a.out
   @rm a.out
 
+wc:
+  @cargo run -- examples/wc.l
+  @gcc lers.yy.c
+  @./a.out
+  @rm a.out
+
 default: run

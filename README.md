@@ -10,6 +10,12 @@ Run the command below to generate a `lers.yy.c` file.
 ## Feature
 This project uses [my own regular expression engine](https://github.com/bthxtly/re).
 
+## Example
+- wc(word counter)
+```sh
+just wc # apply for test.txt
+```
+
 ## Roadmap
 - [x] tokenize the lex file
 - [x] generate a basic `lers.yy.c` file without specific rules
@@ -18,7 +24,10 @@ This project uses [my own regular expression engine](https://github.com/bthxtly/
     - [x] build with Non-deterministic Finite Automate(NFA)
     - [ ] build with Deterministic Finite Automate(DFA)
     - [x] translate from regular expression to C code
-- [ ] support multiple IO (file, stdin, stdout)
+- [ ] support multiple IO
+    - [x] file
+    - [ ] stdin
+    - [ ] stdout
 - [ ] support `yy*` variables
     - [ ] yyin, yyout
     - [x] yytext, yyleng
