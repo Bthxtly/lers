@@ -28,7 +28,7 @@ fo*       { printf("%s has %d o's\n", yytext, yyleng-1); }
 int main(void)
 {
   /* Call the lexer, then quit. */
-  read_file("test.txt");
+  yyin = fopen("test.txt", "r");
   yylex();
   return 0;
 }

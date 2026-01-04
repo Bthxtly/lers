@@ -5,6 +5,7 @@ typedef unsigned long IdxType;
 
 #define YYTEXT_MAXLEN 1024
 
+FILE *yyin;
 char *g_buffer;
 char *g_buffer_ptr;
 IdxType g_buflen;
@@ -13,24 +14,19 @@ IdxType g_bufidx;
 char yytext[YYTEXT_MAXLEN];
 IdxType yyleng;
 
-void read_file(const char *filename) {
-  FILE *fp = fopen(filename, "r");
-  if (fp == NULL) {
-    perror("Failed to open file");
-  }
-
-  fseek(fp, 0, SEEK_END);
-  g_buflen = ftell(fp);
-  rewind(fp);
+void yy_read_buffer() {
+  fseek(yyin, 0, SEEK_END);
+  g_buflen = ftell(yyin);
+  rewind(yyin);
 
   g_buffer = malloc(g_buflen + 1);
   if (!g_buffer) {
     perror("Failed to allocate memory for buffer");
   }
 
-  fread(g_buffer, 1, g_buflen, fp);
+  fread(g_buffer, 1, g_buflen, yyin);
   g_buffer[g_buflen] = '\0';
-  fclose(fp);
+  fclose(yyin);
 }
 
 "#;
@@ -1119,6 +1115,7 @@ int yy_match(NFA *nfa) {
 
 pub const YYLEX: &str = r#"
 int yylex() {
+  yy_read_buffer();
   g_buffer_ptr = g_buffer;
   NFA *nfa = build_many(g_patterns, g_pattern_count);
   while (g_buffer_ptr < g_buffer + g_buflen) {
