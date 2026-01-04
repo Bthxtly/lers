@@ -13,7 +13,7 @@ fn main() {
     if let Some(filename) = args.get(1) {
         read_and_parse_and_write(&filename);
     } else {
-        read_and_parse_and_write("analyzer.l");
+        println!("Usage: lers <source-file>");
     }
 }
 

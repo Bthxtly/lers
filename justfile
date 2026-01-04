@@ -1,11 +1,13 @@
 # https://just.systems
 
+default: run
+
 # build and run lers, generate and compile lers.yy.c, then run the binary file
-run:
-  @cargo run
+run source="analyzer.l":
+  @cargo run -- {{source}} 2>/dev/null
   @gcc lers.yy.c
   @./a.out
-  @rm a.out
+  @rm a.out lers.yy.c
 
 # examples:
 
