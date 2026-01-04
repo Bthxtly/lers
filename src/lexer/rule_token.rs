@@ -4,7 +4,8 @@ use logos::Logos;
 #[logos(skip r"[ ]+")] // Ignore this regex pattern between tokens
 #[logos(skip r"/\*.*?\*/")] // Ignore comments
 pub enum RuleToken<'a> {
-    #[regex(r"\n[^\s]+", |lex| &lex.slice()[1..])] // any non-blank characters from start of a line
+    #[regex(r"\n([^\s\[]|\[[^\]]+\])+", |lex| &lex.slice()[1..])]
+    // any non-blank characters from start of a line
     Pattern(&'a str),
 
     #[regex(r"(?s)\{[^\}]*}", |lex| lex.slice())] // anything surrounded by bracket
