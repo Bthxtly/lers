@@ -4,28 +4,19 @@
   #include <stdio.h>
   char **names = NULL;
   int current = 1;
-  /* newline, word, byte counts */
-  int lc = 0, wc = 0, cc = 0;
 %}
 
 %%
-
-[^ \t\n]+  {cc += yyleng; ++wc;}
-
-.          {cc += yyleng;}
-
-\n         {++lc; ++cc;}
 
 %%
 
 int main(int argc, char **argv) {
   if (argc < 2) {
-    fprintf(stderr, "Usage: wc files....\n");
+    fprintf(stderr, "Usage: cat files....\n");
     exit(1);
   }
   names = argv;
 
-    printf( "  line  word  byte  file\n", lc, wc, cc, names[current]);
   do {
     yyin = fopen(names[current], "r");
     if (yyin == NULL) {
@@ -33,7 +24,6 @@ int main(int argc, char **argv) {
     }
 
     yylex();
-    printf( "%6d%6d%6d  %s\n", lc, wc, cc, names[current]);
   } while (++current < argc);
-  return 0;
 }
+

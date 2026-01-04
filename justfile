@@ -7,10 +7,16 @@ run:
   @./a.out
   @rm a.out
 
-wc:
-  @cargo run -- examples/wc.l
-  @gcc lers.yy.c
-  @./a.out
-  @rm a.out
+# examples:
 
-default: run
+wc +FILES:
+  @cargo run -- examples/wc.l 2>/dev/null
+  @gcc lers.yy.c
+  @./a.out {{FILES}}
+  @rm a.out lers.yy.c
+
+cat +FILES:
+  @cargo run -- examples/cat.l 2>/dev/null
+  @gcc lers.yy.c
+  @./a.out {{FILES}}
+  @rm a.out lers.yy.c
