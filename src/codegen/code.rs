@@ -425,6 +425,9 @@ static Ast *parse_term(Parser *parser) {
   while (parser->current_token->type == LITERAL ||
          parser->current_token->type == CARET ||
          parser->current_token->type == DOT ||
+         parser->current_token->type == DASH ||
+         parser->current_token->type == REPEAT ||
+         parser->current_token->type == ONE_OR_MORE ||
          parser->current_token->type == LBRACKET ||
          parser->current_token->type == LPAREN) {
     Ast *right = parse_factor(parser);
@@ -465,6 +468,21 @@ static Ast *parse_base(Parser *parser) {
   case CARET: {
     char value = parser->current_token->value;
     eat(parser, CARET);
+    return new_ast_literal(value);
+  }
+  case DASH: {
+    char value = parser->current_token->value;
+    eat(parser, DASH);
+    return new_ast_literal(value);
+  }
+  case REPEAT: {
+    char value = parser->current_token->value;
+    eat(parser, REPEAT);
+    return new_ast_literal(value);
+  }
+  case ONE_OR_MORE: {
+    char value = parser->current_token->value;
+    eat(parser, ONE_OR_MORE);
     return new_ast_literal(value);
   }
   case DOT: {

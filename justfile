@@ -22,3 +22,9 @@ cat +FILES:
   @gcc lers.yy.c
   @./a.out {{FILES}}
   @rm a.out lers.yy.c
+
+pascal +FILES="examples/pascal.pas":
+  @cargo run -- examples/pascal.l 2>/dev/null
+  @gcc lers.yy.c
+  @./a.out {{FILES}}
+  @rm a.out lers.yy.c
