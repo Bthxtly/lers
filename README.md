@@ -29,7 +29,6 @@ just wc # apply for test.txt
     - [ ] stdin
     - [ ] stdout
 - [ ] support `yy*` variables
-    - [ ] yyin, yyout
+    - [x] yyin, yyout
     - [x] yytext, yyleng
-
-And more...
+    - [ ] more...

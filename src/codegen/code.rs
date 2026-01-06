@@ -5,7 +5,8 @@ typedef unsigned long IdxType;
 
 #define YYTEXT_MAXLEN 1024
 
-FILE *yyin;
+FILE *yyin = NULL, *yyout = NULL;
+
 char *g_buffer;
 char *g_buffer_ptr;
 IdxType g_buflen;
@@ -1152,6 +1153,11 @@ int yy_match(NFA *nfa) {
 
 pub const YYLEX: &str = r#"
 int yylex() {
+  if (yyin == NULL)
+    yyin = stdin;
+  if (yyout == NULL)
+    yyout = stdout;
+
   yy_read_buffer();
   g_buffer_ptr = g_buffer;
   NFA *nfa = build_many(g_patterns, g_pattern_count);
