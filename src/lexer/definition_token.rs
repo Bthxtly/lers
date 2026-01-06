@@ -18,7 +18,7 @@ pub enum DefinitionToken<'a> {
     #[regex(r"\n[A-Za-z_][A-Za-z0-9_]*", |lex| &lex.slice()[1..])] // skip the leading newline
     Name(&'a str),
 
-    #[regex(r"(\{[A-Za-z]+\}|[^ \n{}])+", |lex| lex.slice(), priority=0)]
+    #[regex(r"([^\s\[]|\[[^\]]+\])+", |lex| lex.slice(), priority = 1)]
     Pattern(&'a str),
 
     #[token("\n")]
