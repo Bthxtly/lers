@@ -1113,7 +1113,7 @@ int yy_match(NFA *nfa) {
 
   yyleng = 0;
   IdxType last_match = 0;
-  State first_shared_state = 0;
+  State last_shared_state = 0;
   while (g_buffer_ptr < g_buffer + g_buflen) {
     s = epsilon_closure(nfa, move(nfa, s, *g_buffer_ptr));
 
@@ -1129,7 +1129,7 @@ int yy_match(NFA *nfa) {
     }
 
     /* if any target state is reached, mark matching */
-    if ((first_shared_state = get_shared_states(s, nfa->target_states))) {
+    if ((last_shared_state = get_shared_states(nfa->target_states, s))) {
       last_match = yyleng;
     }
 
@@ -1139,7 +1139,7 @@ int yy_match(NFA *nfa) {
   yytext[yyleng] = '\0';
 
   for (size_t i = 0; i < nfa->target_states->len; ++i) {
-    if (nfa->target_states->states[i] == first_shared_state) {
+    if (nfa->target_states->states[i] == last_shared_state) {
       free(s);
       return i;
     }
