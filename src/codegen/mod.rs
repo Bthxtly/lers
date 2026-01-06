@@ -66,6 +66,7 @@ impl<'a> CodeGen<'a> {
     fn apply_options(&mut self) {
         if let Some(options) = &self.ast.definition_node.as_ref().unwrap().options {
             for option in options {
+                #[allow(clippy::single_match)]
                 match option.value {
                     "noyywrap" => self.options.push(lers_option::LersOption::Noyywrap),
                     _ => {}
@@ -92,10 +93,11 @@ impl<'a> CodeGen<'a> {
         ));
         code.push_str("char *g_patterns[] = {\n");
         for pattern in &self.rule_table.patterns {
-            code.push_str(&format!("  \"{}\",\n", *pattern));
+            let escaped_pattern = pattern.replace("\\", "\\\\");
+            code.push_str(&format!("  \"{}\",\n", escaped_pattern));
         }
         // match unmatched characters
-        code.push_str(&format!("  \".|\\n\",\n"));
+        code.push_str("  \".|\\\\n\",\n");
         code.push_str("};\n");
         code.push('\n');
         code
@@ -112,7 +114,7 @@ impl<'a> CodeGen<'a> {
         }
         // echo unmatched characters
         code.push_str(&format!(
-            "  if (pattern_index == {}) {{ printf(\"%s\", yytext); }}\n",
+            "  if (pattern_index == {}) {{ fwrite(yytext, (size_t) yyleng, 1, yyout); }}\n",
             self.rule_table.actions.len()
         ));
         code.push_str("}\n");

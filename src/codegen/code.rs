@@ -125,9 +125,10 @@ typedef enum TokenType {
   CARET,
   DASH,
   DOT,
-  ONE_OR_MORE,
-  REPEAT,
-  OR,
+  PLUS,
+  ASTERISK,
+  BAR,
+  BACK_SLASH,
   LITERAL,
   END
 } TokenType;
@@ -191,13 +192,16 @@ Token *get_next_token(Lexer *lexer) {
     lexer->current_token = new_token(DOT, '.');
     break;
   case '+':
-    lexer->current_token = new_token(ONE_OR_MORE, '+');
+    lexer->current_token = new_token(PLUS, '+');
     break;
   case '*':
-    lexer->current_token = new_token(REPEAT, '*');
+    lexer->current_token = new_token(ASTERISK, '*');
     break;
   case '|':
-    lexer->current_token = new_token(OR, '|');
+    lexer->current_token = new_token(BAR, '|');
+    break;
+  case '\\':
+    lexer->current_token = new_token(BACK_SLASH, '\\');
     break;
   default:
     lexer->current_token = new_token(LITERAL, current_char);
@@ -397,6 +401,29 @@ static void eat(Parser *parser, TokenType type) {
   }
 }
 
+static char eat_escape_char(Parser *parser) {
+  eat(parser, BACK_SLASH);
+  char value;
+  switch (parser->current_token->value) {
+  case 'a': /* beep */
+    value = '\a';
+    break;
+  case 'n': /* newline */
+    value = '\n';
+    break;
+  case 'r': /* carriage return */
+    value = '\r';
+    break;
+  case 't': /* tab */
+    value = '\t';
+    break;
+  default:
+    value = parser->current_token->value;
+  }
+  parser->current_token = get_next_token(parser->lexer);
+  return value;
+}
+
 /* Forward declarations */
 static Ast *parse_expr(Parser *parser);
 static Ast *parse_term(Parser *parser);
@@ -409,8 +436,8 @@ static Ast *parse_range(Parser *parser);
  */
 static Ast *parse_expr(Parser *parser) {
   Ast *node = parse_term(parser);
-  while (parser->current_token->type == OR) {
-    eat(parser, OR);
+  while (parser->current_token->type == BAR) {
+    eat(parser, BAR);
     Ast *right = parse_term(parser);
     node = new_ast_or(node, right);
   }
@@ -425,11 +452,9 @@ static Ast *parse_term(Parser *parser) {
   while (parser->current_token->type == LITERAL ||
          parser->current_token->type == CARET ||
          parser->current_token->type == DOT ||
-         parser->current_token->type == DASH ||
-         parser->current_token->type == REPEAT ||
-         parser->current_token->type == ONE_OR_MORE ||
          parser->current_token->type == LBRACKET ||
-         parser->current_token->type == LPAREN) {
+         parser->current_token->type == LPAREN ||
+         parser->current_token->type == BACK_SLASH) {
     Ast *right = parse_factor(parser);
     node = new_ast_and(node, right);
   }
@@ -437,16 +462,16 @@ static Ast *parse_term(Parser *parser) {
 }
 
 /*
- * factor := base ('*')
- *           base ('+')
+ * factor := base '*'
+ *           base '+'
  */
 static Ast *parse_factor(Parser *parser) {
   Ast *node = parse_base(parser);
-  if (parser->current_token->type == REPEAT) {
-    eat(parser, REPEAT);
+  if (parser->current_token->type == ASTERISK) {
+    eat(parser, ASTERISK);
     node = new_ast_repeat(node);
-  } else if (parser->current_token->type == ONE_OR_MORE) {
-    eat(parser, ONE_OR_MORE);
+  } else if (parser->current_token->type == PLUS) {
+    eat(parser, PLUS);
     node = new_ast_and(clone_ast(node), new_ast_repeat(node));
   }
   return node;
@@ -454,6 +479,7 @@ static Ast *parse_factor(Parser *parser) {
 
 /*
  * base := LITERAL | CARET
+ *       | BACK_SLASH any_single_character
  *       | DOT
  *       | '[' range ']'
  *       | '(' expr ')'
@@ -470,20 +496,8 @@ static Ast *parse_base(Parser *parser) {
     eat(parser, CARET);
     return new_ast_literal(value);
   }
-  case DASH: {
-    char value = parser->current_token->value;
-    eat(parser, DASH);
-    return new_ast_literal(value);
-  }
-  case REPEAT: {
-    char value = parser->current_token->value;
-    eat(parser, REPEAT);
-    return new_ast_literal(value);
-  }
-  case ONE_OR_MORE: {
-    char value = parser->current_token->value;
-    eat(parser, ONE_OR_MORE);
-    return new_ast_literal(value);
+  case BACK_SLASH: {
+    return new_ast_literal(eat_escape_char(parser));
   }
   case DOT: {
     /* anything but newline */
@@ -515,6 +529,7 @@ static Ast *parse_base(Parser *parser) {
  * range or set
  * range := CARET
  *        | LITERAL
+ *        | BACK_SLASH any_single_character
  *        | LITERAL DASH LITERAL
  *        | range
  */
@@ -528,20 +543,24 @@ static Ast *parse_range(Parser *parser) {
 
   Vector_char *set = new_vector_char();
   while (parser->current_token->type != RBRACKET) {
-    char from = parser->current_token->value;
-    eat(parser, LITERAL);
-    Ast *right;
-    /* range */
-    if (parser->current_token->type == DASH) {
-      eat(parser, DASH);
-      char to = parser->current_token->value;
+    if (parser->current_token->type == BACK_SLASH) {
+      push_vector_char(set, eat_escape_char(parser));
+    } else {
+      char from = parser->current_token->value;
       eat(parser, LITERAL);
-      for (char c = from; c <= to; ++c)
-        push_vector_char(set, c);
+      Ast *right;
+      /* range */
+      if (parser->current_token->type == DASH) {
+        eat(parser, DASH);
+        char to = parser->current_token->value;
+        eat(parser, LITERAL);
+        for (char c = from; c <= to; ++c)
+          push_vector_char(set, c);
+      }
+      /* set */
+      else
+        push_vector_char(set, from);
     }
-    /* set */
-    else
-      push_vector_char(set, from);
   }
   return new_ast_set(set, is_neg);
 }
