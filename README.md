@@ -13,7 +13,17 @@ This project uses [my own regular expression engine](https://github.com/bthxtly/
 ## Example
 - wc(word counter)
 ```sh
-just wc # apply for test.txt
+just wc [+FILES]
+```
+
+- cat(concatenate)
+```sh
+just cat [+FILES]
+```
+
+- pascal lexer
+```sh
+just pascal [+FILES="examples/pascal.pas"]
 ```
 
 ## Roadmap

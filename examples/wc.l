@@ -12,7 +12,7 @@
 
 [^ \t\n]+  {cc += yyleng; ++wc;}
 
-.          {cc += yyleng;}
+[ \t]+     {cc += yyleng;}
 
 \n         {++lc; ++cc;}
 
@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
   }
   names = argv;
 
-    printf( "  line  word  byte  file\n", lc, wc, cc, names[current]);
+    printf( "  line  word  byte  file\n");
   do {
     yyin = fopen(names[current], "r");
     if (yyin == NULL) {

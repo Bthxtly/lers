@@ -8,19 +8,20 @@
 
 number    [0-9]+
 id        [A-Za-z]+
+ws        [ \t\n]+
 %%
 
-{number}  { printf("<NUMBER, %s >\n", yytext); }
-{id}      { printf("<ID, %s >\n", yytext); }
-BEGIN     { printf("<BEGIN, BEGIN>\n"); }
-END       { printf("<END, END>\n"); }
-+         { printf("<ADD, + >\n"); }
--         { printf("<SUB, - >\n"); }
-*         { printf("<MUL, * >\n"); }
+BEGIN     { printf("<BEGIN, BEGIN >\n"); }
+END       { printf("<END, END >\n"); }
+\+        { printf("<ADD, + >\n"); }
+\-        { printf("<SUB, - >\n"); }
+\*        { printf("<MUL, * >\n"); }
 /         { printf("<DIV, / >\n"); }
 :=        { printf("<ASSIGN, := >\n"); }
 ;         { printf("<SEMICOLON, ; >\n"); }
-.|\n      { /* ignore whitespace */ }
+{number}  { printf("<NUMBER, %s >\n", yytext); }
+{id}      { printf("<ID, %s >\n", yytext); }
+{ws}      { /* ignore whitespace */ }
 
 %%
 
