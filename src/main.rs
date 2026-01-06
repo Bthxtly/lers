@@ -11,7 +11,7 @@ use std::{env, fs};
 fn main() {
     let args: Vec<String> = env::args().collect();
     if let Some(filename) = args.get(1) {
-        read_and_parse_and_write(&filename);
+        read_and_parse_and_write(filename);
     } else {
         println!("Usage: lers <source-file>");
     }
